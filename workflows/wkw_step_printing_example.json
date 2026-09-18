@@ -1,6 +1,6 @@
 {
-  "last_node_id": 5,
-  "last_link_id": 5,
+  "last_node_id": 3,
+  "last_link_id": 3,
   "nodes": [
     {
       "id": 1,
@@ -33,9 +33,7 @@
         {
           "name": "fps",
           "type": "FLOAT",
-          "links": [
-            2
-          ],
+          "links": null,
           "slot_index": 2
         }
       ],
@@ -78,7 +76,7 @@
           "name": "images",
           "type": "IMAGE",
           "links": [
-            3
+            2
           ],
           "slot_index": 0
         },
@@ -86,7 +84,7 @@
           "name": "output_fps",
           "type": "FLOAT",
           "links": [
-            4
+            3
           ],
           "slot_index": 1
         },
@@ -104,7 +102,7 @@
         "target_capture_fps": 6.0,
         "shutter_angle": 360.0,
         "optical_flow_method": "RAFT-Small (Deep Learning)",
-        "flow_samples": 12,
+        "flow_samples": 16,
         "occlusion_aware": true,
         "occlusion_threshold": 1.5,
         "shutter_curve": "trailing_decay",
@@ -116,7 +114,7 @@
     },
     {
       "id": 3,
-      "type": "WKWGradingNode",
+      "type": "VHS_VideoCombine",
       "pos": [
         850,
         200
@@ -132,56 +130,12 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 3
-        }
-      ],
-      "outputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "links": [
-            5
-          ],
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "WKWGradingNode"
-      },
-      "widgets_values": {
-        "color_preset": "chungking_green_amber",
-        "neon_bloom_intensity": 0.35,
-        "bloom_threshold": 0.65,
-        "chromatic_aberration": 0.25,
-        "film_grain": 0.12,
-        "contrast": 1.15,
-        "saturation": 1.1
-      }
-    },
-    {
-      "id": 4,
-      "type": "VHS_VideoCombine",
-      "pos": [
-        1210,
-        200
-      ],
-      "size": [
-        320,
-        350
-      ],
-      "flags": {},
-      "order": 3,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 5
+          "link": 2
         },
         {
           "name": "frame_rate",
           "type": "FLOAT",
-          "link": 4
+          "link": 3
         }
       ],
       "outputs": [
@@ -214,7 +168,7 @@
       "IMAGE"
     ],
     [
-      3,
+      2,
       2,
       0,
       3,
@@ -222,20 +176,12 @@
       "IMAGE"
     ],
     [
-      4,
+      3,
       2,
       1,
-      4,
+      3,
       1,
       "FLOAT"
-    ],
-    [
-      5,
-      3,
-      0,
-      4,
-      0,
-      "IMAGE"
     ]
   ],
   "groups": [],

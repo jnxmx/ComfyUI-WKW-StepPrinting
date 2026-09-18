@@ -2,7 +2,7 @@
 
 A professional ComfyUI custom node pack that converts any input video (at any frame rate) into the iconic **Wong Kar-Wai** (*Chungking Express*, *Fallen Angels*, *Happy Together*) step-printed slow-motion aesthetic.
 
-Built with **Deep Learning Optical Flow (torchvision RAFT)**, **VFX-grade forward-backward occlusion & disocclusion handling**, **continuous sub-pixel vector path integration**, **open shutter aperture smearing**, and **90s Christopher Doyle Hong Kong film grading**.
+Built with **Deep Learning Optical Flow (torchvision RAFT)**, **VFX-grade forward-backward occlusion & disocclusion handling**, **continuous sub-pixel forward-splatted vector path integration**, **open shutter aperture smearing**, and **unified multi-frame global shutter exposure**.
 
 ---
 
@@ -17,12 +17,12 @@ In cinematography, Wong Kar-Wai and legendary DP Christopher Doyle achieved thei
 
 2. **Optical Step-Printing**:
    - In post-production, each captured frame is duplicated (step-printed) onto a standard $24\,\text{fps}$ timeline (e.g., repeating each $6\,\text{fps}$ frame 4 times: `AAAA BBBB CCCC`).
-   - This creates a hypnotic staccato cadence: time appears to stutter and slow down, with moving subjects trailing ghosted streaks of neon light.
+   - This creates a hypnotic staccato cadence: time appears to stutter and slow down, with moving subjects trailing ghosted streaks of light.
 
-3. **Why Optical Flow & Occlusion Handling is Critical**:
-   - Naive digital frame blending averages discrete frames, resulting in harsh, ugly double-images (choppy ghosting).
-   - Similar to Natron / Nuke OFX VectorBlur, this node pack computes dense bidirectional optical flow (forward $I_t \to I_{t+1}$ and backward $I_{t+1} \to I_t$) using PyTorch RAFT.
-   - A **Forward-Backward Consistency Check** detects occluded regions ($e(x) = \|\mathbf{u}_{fwd} + \mathbf{u}_{bwd}(x + \mathbf{u}_{fwd})\|$). Occluded background pixels are attenuated during forward warping, preventing unsightly foreground bleeding, haloing, and ghost tears.
+3. **Continuous Forward Splatting & Occlusion Handling**:
+   - Computes dense bidirectional optical flow (forward $I_t \to I_{t+1}$ and backward $I_{t+1} \to I_t$) using PyTorch RAFT.
+   - Forward-splats pixels continuously across the active exposure window, avoiding discrete ghosting.
+   - **Occlusion Z-Ordering**: Moving foreground objects receive higher Z-depth priority, preventing background elements from bleeding through solid foreground streaks.
 
 ---
 
@@ -31,7 +31,7 @@ In cinematography, Wong Kar-Wai and legendary DP Christopher Doyle achieved thei
 ### 1. 🎬 `WKW Step Printing (Optical Flow & Occlusion)`
 The master step-printing engine:
 - **`images`**: Input video frames (`IMAGE` batch `[B, H, W, C]`).
-- **`input_fps`**: Original video framerate (e.g. `24.0`, `30.0`, `60.0`).
+- **`input_fps`**: Original video framerate (e.g. `24.0`, `30.0`, `60.0`, or `96.0` from RIFE).
 - **`target_capture_fps`**: Undercranking rate (e.g. `6.0`, `8.0`, `12.0`).
 - **`shutter_angle`**: Shutter opening angle:
   - `180.0°`: Standard film shutter.
@@ -42,8 +42,8 @@ The master step-printing engine:
   - `RAFT-Large (Deep Learning)`: High-fidelity deep flow for intricate fine motion.
   - `DIS (Fast OpenCV)`: Ultra-fast CPU/preview fallback.
   - `Farneback (OpenCV)`: Classical optical flow.
-- **`flow_samples`**: Sub-pixel trajectory samples per frame (default: `12`).
-- **`occlusion_aware`**: Enables forward-backward consistency check to eliminate ghosting at object silhouettes.
+- **`flow_samples`**: Sub-pixel trajectory samples per frame (default: `16`).
+- **`occlusion_aware`**: Enables forward-backward consistency check and Z-depth priority.
 - **`occlusion_threshold`**: Pixel error sensitivity for occlusion masking (default: `1.5`).
 - **`shutter_curve`**:
   - `trailing_decay`: Exponential decay backwards in time (leaves a glowing phosphor/neon trail behind moving objects).
@@ -56,17 +56,7 @@ The master step-printing engine:
   - `slow_motion_stretch`: Extends each capture frame by `step_repeat_count`, generating true slow motion.
 - **`device`**: `auto` (detects CUDA, MPS, CPU), `cuda`, `mps`, or `cpu`.
 
-### 2. 🏮 `WKW Film & Lens Style (Neon Bloom / Halation)`
-Recreates Christopher Doyle's vintage lens and 90s Hong Kong film stock:
-- **`color_preset`**:
-  - `chungking_green_amber`: Greenish-cyan shadows + warm sodium-vapor amber highlights (*Chungking Express*).
-  - `fallen_angels_night`: Gritty high-contrast cool blues + electric saturated neon (*Fallen Angels*).
-  - `in_the_mood_warm`: Rich 50s tungsten warmth + crimson reds (*In the Mood for Love*).
-- **`neon_bloom_intensity`**: Vintage lens flare and diffuse glow around streetlights and neon signs.
-- **`chromatic_aberration`**: Radial chromatic fringing simulating vintage high-speed prime lenses (Canon K-35) shot wide open.
-- **`film_grain`**: Organic 35mm photochemical grain.
-
-### 3. 👁️ `WKW Motion Vector Visualizer`
+### 2. 👁️ `WKW Motion Vector Visualizer`
 VFX inspection node:
 - Outputs color-coded HSV motion vector fields and grayscale occlusion/disocclusion masks.
 
@@ -89,7 +79,7 @@ pip install -r ComfyUI-WKW-StepPrinting/requirements.txt
 ## 🚀 NVIDIA GPU Acceleration
 
 - The deep learning optical flow engine uses native PyTorch (`torchvision.models.optical_flow`).
-- It runs with full CUDA acceleration on NVIDIA RTX cards (Ampere, Ada, Hopper, Blackwell, Turing, etc.) without needing to compile separate C++ extensions.
+- It runs with full CUDA acceleration on NVIDIA RTX cards without needing to compile separate C++ extensions.
 - Automatic fallback to OpenCV DIS optical flow is supported if running without CUDA.
 
 ---

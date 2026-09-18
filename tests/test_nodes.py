@@ -13,29 +13,19 @@ from core.flow_engine import FlowEngine
 from core.occlusion import compute_occlusion_mask, compute_disocclusion_mask, backward_warp
 from core.vector_blur import integrate_vector_path, generate_shutter_weights
 from core.step_printer import StepPrinter
-from core.color_grade import (
-    apply_neon_bloom_and_halation,
-    apply_chromatic_aberration,
-    apply_wkw_color_palette,
-    apply_film_grain
-)
 from nodes.wkw_step_printing_node import WKWStepPrintingNode
-from nodes.wkw_grading_node import WKWGradingNode
 from nodes.wkw_vector_viz_node import WKWVectorVisualizerNode
 
 
 class TestWKWStepPrinting(unittest.TestCase):
 
     def setUp(self):
-        # Create a synthetic video sequence of 12 frames: moving bright square against dark background
         self.T, self.H, self.W, self.C = 12, 128, 128, 3
         self.frames_hwc = torch.zeros((self.T, self.H, self.W, self.C), dtype=torch.float32)
         for t in range(self.T):
-            # Square moves diagonally from (20 + 4*t) to (40 + 4*t)
             pos_y = 20 + t * 4
             pos_x = 20 + t * 6
             self.frames_hwc[t, pos_y:pos_y+24, pos_x:pos_x+24, :] = 1.0
-            # Add a stationary neon light in top-right
             self.frames_hwc[t, 10:25, 90:110, 0] = 0.9
             self.frames_hwc[t, 10:25, 90:110, 1] = 0.8
             self.frames_hwc[t, 10:25, 90:110, 2] = 0.2
@@ -111,7 +101,7 @@ class TestWKWStepPrinting(unittest.TestCase):
         self.assertEqual(out_imgs2.shape[0], 3)
         self.assertEqual(out_fps2, 6.0)
 
-        # Mode 3: slow_motion_stretch (repeat 4 times -> 12 frames stretched)
+        # Mode 3: slow_motion_stretch
         out_imgs3, out_fps3, _ = node.apply_step_printing(
             images=self.frames_hwc,
             input_fps=24.0,
@@ -129,22 +119,6 @@ class TestWKWStepPrinting(unittest.TestCase):
         )
         self.assertEqual(out_imgs3.shape[0], 12)
         self.assertEqual(out_fps3, 24.0)
-
-    def test_wkw_styling_node(self):
-        grading = WKWGradingNode()
-        for preset in ["chungking_green_amber", "fallen_angels_night", "in_the_mood_warm"]:
-            styled, = grading.apply_style(
-                images=self.frames_hwc,
-                color_preset=preset,
-                neon_bloom_intensity=0.4,
-                bloom_threshold=0.6,
-                chromatic_aberration=0.3,
-                film_grain=0.1,
-                contrast=1.1,
-                saturation=1.1
-            )
-            self.assertEqual(styled.shape, self.frames_hwc.shape)
-            self.assertTrue(torch.all(styled >= 0.0) and torch.all(styled <= 1.0))
 
     def test_vector_visualizer_node(self):
         viz = WKWVectorVisualizerNode()
