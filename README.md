@@ -33,6 +33,10 @@ The master step-printing engine:
 - **`images`**: Input video frames (`IMAGE` batch `[B, H, W, C]`).
 - **`input_fps`**: Original video framerate (e.g. `24.0`, `30.0`, `60.0`, or `96.0` from RIFE).
 - **`target_capture_fps`**: Undercranking rate (e.g. `6.0`, `8.0`, `12.0`).
+- **`shutter_timing`**:
+  - `trailing (past trail only)` *(Default)*: Streaks extend strictly into the past behind moving subjects. Prevents "ghosts from the future" from appearing ahead of motion.
+  - `centered`: Symmetrical shutter window.
+  - `leading (future trail)`: Front-curtain sync.
 - **`shutter_angle`**: Shutter opening angle:
   - `180.0°`: Standard film shutter.
   - `360.0°`: Full open shutter (classic WKW smear).

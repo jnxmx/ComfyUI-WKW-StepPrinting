@@ -24,14 +24,19 @@ class WKWStepPrintingNode:
                 "input_fps": ("FLOAT", {"default": 24.0, "min": 1.0, "max": 240.0, "step": 0.5}),
                 "target_capture_fps": ("FLOAT", {"default": 6.0, "min": 1.0, "max": 60.0, "step": 0.5}),
                 "shutter_angle": ("FLOAT", {"default": 360.0, "min": 0.0, "max": 720.0, "step": 5.0, "tooltip": "180=standard cinema, 360=full open shutter, 720=extreme double-frame light streak"}),
+                "shutter_timing": ([
+                    "trailing (past trail only)",
+                    "centered",
+                    "leading (future trail)"
+                ], {"default": "trailing (past trail only)", "tooltip": "trailing: streak extends strictly into the past behind moving subjects (no future frames). centered: symmetric. leading: future streak."}),
                 "optical_flow_method": ([
                     "RAFT-Small (Deep Learning)",
                     "RAFT-Large (Deep Learning)",
                     "DIS (Fast OpenCV)",
                     "Farneback (OpenCV)"
                 ], {"default": "RAFT-Small (Deep Learning)"}),
-                "flow_samples": ("INT", {"default": 12, "min": 2, "max": 48, "step": 1, "tooltip": "Sub-pixel integration steps along vector trajectories"}),
-                "occlusion_aware": ("BOOLEAN", {"default": True, "tooltip": "Forward-backward consistency check to prevent edge bleed and ghosting"}),
+                "flow_samples": ("INT", {"default": 16, "min": 2, "max": 48, "step": 1, "tooltip": "Sub-pixel integration steps along vector trajectories"}),
+                "occlusion_aware": ("BOOLEAN", {"default": True, "tooltip": "Forward-backward consistency check and Z-depth priority to prevent background bleed"}),
                 "occlusion_threshold": ("FLOAT", {"default": 1.5, "min": 0.2, "max": 8.0, "step": 0.1}),
                 "shutter_curve": ([
                     "trailing_decay",
@@ -61,6 +66,7 @@ class WKWStepPrintingNode:
         input_fps: float,
         target_capture_fps: float,
         shutter_angle: float,
+        shutter_timing: str,
         optical_flow_method: str,
         flow_samples: int,
         occlusion_aware: bool,
@@ -71,8 +77,6 @@ class WKWStepPrintingNode:
         vector_blur_intensity: float,
         device: str
     ):
-        # ComfyUI image format: [B, H, W, C] in range [0, 1]
-        # Permute to PyTorch standard: [B, C, H, W]
         orig_device = images.device
         x = images.permute(0, 3, 1, 2).contiguous()
 
@@ -81,6 +85,7 @@ class WKWStepPrintingNode:
             input_fps=input_fps,
             target_capture_fps=target_capture_fps,
             shutter_angle=shutter_angle,
+            shutter_timing=shutter_timing,
             optical_flow_method=optical_flow_method,
             flow_samples=flow_samples,
             occlusion_aware=occlusion_aware,
@@ -92,9 +97,7 @@ class WKWStepPrintingNode:
             device=device
         )
 
-        # Permute back to [B, H, W, C]
         res_images = out_frames.permute(0, 2, 3, 1).to(orig_device)
-        # ComfyUI mask format: [B, H, W]
         res_masks = out_masks.squeeze(1).to(orig_device)
 
         return (res_images, float(out_fps), res_masks)

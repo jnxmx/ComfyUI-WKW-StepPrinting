@@ -62,12 +62,13 @@ class TestWKWStepPrinting(unittest.TestCase):
     def test_step_printing_cadence_modes(self):
         node = WKWStepPrintingNode()
 
-        # Mode 1: step_print_repeat (maintains 12 frames, 24fps)
+        # Mode 1: step_print_repeat
         out_imgs, out_fps, out_masks = node.apply_step_printing(
             images=self.frames_hwc,
             input_fps=24.0,
             target_capture_fps=6.0,
             shutter_angle=360.0,
+            shutter_timing="trailing (past trail only)",
             optical_flow_method="RAFT-Small (Deep Learning)",
             flow_samples=6,
             occlusion_aware=True,
@@ -82,12 +83,13 @@ class TestWKWStepPrinting(unittest.TestCase):
         self.assertEqual(out_masks.shape, (self.T, self.H, self.W))
         self.assertEqual(out_fps, 24.0)
 
-        # Mode 2: decimate_to_target_fps (12 frames @ 24fps -> 3 frames @ 6fps)
+        # Mode 2: decimate_to_target_fps
         out_imgs2, out_fps2, _ = node.apply_step_printing(
             images=self.frames_hwc,
             input_fps=24.0,
             target_capture_fps=6.0,
             shutter_angle=360.0,
+            shutter_timing="trailing (past trail only)",
             optical_flow_method="RAFT-Small (Deep Learning)",
             flow_samples=6,
             occlusion_aware=True,
@@ -107,6 +109,7 @@ class TestWKWStepPrinting(unittest.TestCase):
             input_fps=24.0,
             target_capture_fps=6.0,
             shutter_angle=360.0,
+            shutter_timing="trailing (past trail only)",
             optical_flow_method="RAFT-Small (Deep Learning)",
             flow_samples=6,
             occlusion_aware=True,

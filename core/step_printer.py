@@ -2,8 +2,8 @@
 Step-Printing & Temporal Cadence Engine.
 Calculates undercranking capture windows, exposure duration, shutter integration,
 and step-printing frame repetition / decimation / slow-motion stretching.
-Uses a unified global shutter curve across multi-frame exposure windows with dense
-continuous sub-frame forward-splatting to eliminate discrete ghost frames.
+Uses a unified global shutter curve with forward-splatting and strictly enforces
+shutter timing (trailing/rear-curtain to prevent future frames from appearing).
 """
 
 import math
@@ -33,6 +33,7 @@ class StepPrinter:
         input_fps: float = 24.0,
         target_capture_fps: float = 6.0,
         shutter_angle: float = 360.0,
+        shutter_timing: str = "trailing (past trail only)",
         optical_flow_method: str = "RAFT-Small (Deep Learning)",
         flow_samples: int = 16,
         occlusion_aware: bool = True,
@@ -63,11 +64,9 @@ class StepPrinter:
         # Fraction of capture interval during which the shutter is open
         exposure_fraction = max(0.01, float(shutter_angle) / 360.0)
         # Number of input frame intervals to expose
-        exposure_frames_float = max(1.0, window_size_float * exposure_fraction * vector_blur_intensity)
+        exposure_frames_float = max(0.5, window_size_float * exposure_fraction * vector_blur_intensity)
 
         # Precompute adjacent inter-frame optical flows
-        # flows_fwd[k] is flow from frame k -> k+1
-        # flows_bwd[k] is flow from frame k+1 -> k
         flows_fwd = []
         flows_bwd = []
         pair_masks = []
@@ -94,17 +93,37 @@ class StepPrinter:
         flows_bwd.append(zero_flow)
         pair_masks.append(torch.ones((1, 1, H, W), device=target_device, dtype=frames.dtype))
 
-        # Synthesize undercranked capture frames using UNIFIED global shutter exposure
+        # Synthesize undercranked capture frames
         num_captures = max(1, int(math.ceil(T / window_size_float)))
         captured_frames = []
         captured_masks = []
 
-        # Number of dense temporal samples across the entire exposure window
+        # Number of dense temporal samples across the exposure window
         sub_samples_per_window = max(12, int(round(window_size_float * max(4, flow_samples // 2))))
 
+        timing_mode = shutter_timing.lower()
+
         for c_idx in range(num_captures):
-            t_start = c_idx * window_size_float
-            t_end = min(float(T - 1), t_start + exposure_frames_float)
+            t_anchor = float(c_idx * window_size_float)
+
+            # Determine exposure window boundaries based on shutter timing
+            if "trailing" in timing_mode or "past" in timing_mode:
+                # REAR-CURTAIN / TRAILING:
+                # The anchor point is current present. The trail extends strictly into the PAST.
+                # Absolutely NO future frames are included!
+                # For capture 0, trail from 0 to window_size with present at window_size,
+                # or anchor at t_end = min(T - 1, (c_idx + 1) * window_size_float - 1)
+                # To ensure even the first held block has motion smear from its interval:
+                t_end = min(float(T - 1), (c_idx + 1) * window_size_float - 1.0)
+                t_start = max(0.0, t_end - exposure_frames_float)
+            elif "centered" in timing_mode:
+                t_center = min(float(T - 1), c_idx * window_size_float + window_size_float * 0.5)
+                t_start = max(0.0, t_center - exposure_frames_float * 0.5)
+                t_end = min(float(T - 1), t_center + exposure_frames_float * 0.5)
+            else:
+                # LEADING / FRONT-CURTAIN:
+                t_start = c_idx * window_size_float
+                t_end = min(float(T - 1), t_start + exposure_frames_float)
 
             if t_start >= T:
                 break
@@ -119,25 +138,23 @@ class StepPrinter:
             accum_m = torch.zeros_like(pair_masks[0])
             total_w = 0.0
 
-            # Generate dense continuous sub-samples across [t_start, t_end]
+            # Dense continuous sampling across [t_start, t_end]
             for s_idx in range(sub_samples_per_window):
-                # Normalized coordinate along the entire exposure window in [0, 1]
                 tau_norm = float(s_idx) / float(sub_samples_per_window - 1)
-
-                # Continuous time in frame indices
                 tau_frame = t_start + tau_norm * (t_end - t_start)
                 tau_frame = min(float(T - 1), max(0.0, tau_frame))
 
-                # Integer frame segment
                 k = min(T - 2, max(0, int(math.floor(tau_frame))))
                 k_next = min(T - 1, k + 1)
                 alpha = tau_frame - float(k)
                 alpha = min(1.0, max(0.0, alpha))
 
-                # Global shutter weight: STRICTLY ONE continuous curve across the whole window!
+                # Shutter weighting:
+                # tau_norm = 1.0 is t_end (latest/sharpest present moment)
+                # tau_norm = 0.0 is t_start (oldest past moment)
                 if shutter_curve == "trailing_decay":
-                    # Current frame (end of exposure) is sharpest, trails fade behind
-                    w = math.exp(-2.2 * (1.0 - tau_norm))
+                    # Monotonically decays backwards into the past
+                    w = math.exp(-2.5 * (1.0 - tau_norm))
                 elif shutter_curve == "gaussian":
                     w = math.exp(-0.5 * ((tau_norm - 0.5) / 0.28) ** 2)
                 elif shutter_curve == "triangle":
@@ -145,7 +162,6 @@ class StepPrinter:
                 else:
                     w = 1.0
 
-                # Continuous sub-frame via forward splatting
                 if k == k_next or alpha < 1e-4:
                     sub_f = frames[k:k+1]
                 elif alpha > 0.999:
