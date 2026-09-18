@@ -76,20 +76,25 @@ class FlowEngine:
         pad_h = (8 - H % 8) % 8
         pad_w = (8 - W % 8) % 8
 
-        t_img1 = img1.to(model_device)
-        t_img2 = img2.to(model_device)
-        if t_img1.max() <= 1.05:
-            t_img1 = t_img1 * 255.0
-            t_img2 = t_img2 * 255.0
+        t_img1 = img1.to(model_device).float()
+        t_img2 = img2.to(model_device).float()
+
+        # ComfyUI tensors are already float in [0, 1].
+        # If passed in [0, 255], normalize to [0, 1] first so torchvision transforms
+        # properly maps [0, 1] into [-1, 1]. DO NOT multiply by 255!
+        if t_img1.max() > 1.5:
+            t_img1 = t_img1 / 255.0
+            t_img2 = t_img2 / 255.0
 
         if pad_h > 0 or pad_w > 0:
             t_img1 = F.pad(t_img1, (0, pad_w, 0, pad_h), mode="replicate")
             t_img2 = F.pad(t_img2, (0, pad_w, 0, pad_h), mode="replicate")
 
-        t_img1, t_img2 = transforms(t_img1, t_img2)
+        # torchvision transforms converts [0, 1] float tensor to [-1, 1] normalized tensor
+        norm_img1, norm_img2 = transforms(t_img1, t_img2)
 
         with torch.inference_mode():
-            flow_predictions = model(t_img1, t_img2)
+            flow_predictions = model(norm_img1, norm_img2)
             flow = flow_predictions[-1]
 
         if pad_h > 0 or pad_w > 0:
@@ -111,8 +116,8 @@ class FlowEngine:
         flows = []
 
         for b in range(B):
-            f1 = (img1[b].permute(1, 2, 0).cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
-            f2 = (img2[b].permute(1, 2, 0).cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
+            f1 = (img1[b].permute(1, 2, 0).cpu().numpy() * 255.0).clip(0, 255).astype(np.uint8)
+            f2 = (img2[b].permute(1, 2, 0).cpu().numpy() * 255.0).clip(0, 255).astype(np.uint8)
             g1 = cv2.cvtColor(f1, cv2.COLOR_RGB2GRAY)
             g2 = cv2.cvtColor(f2, cv2.COLOR_RGB2GRAY)
 
