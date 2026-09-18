@@ -1,0 +1,17 @@
+[project]
+name = "comfyui-wkw-stepprinting"
+version = "1.0.0"
+description = "Wong Kar-Wai / Christopher Doyle Step-Printing & Deep Optical Flow Motion Blur Node Pack for ComfyUI."
+authors = [{ name = "jnxmx" }]
+readme = "README.md"
+license = { text = "MIT" }
+dependencies = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "numpy",
+    "opencv-python"
+]
+
+[project.urls]
+Homepage = "https://github.com/jnxmx/ComfyUI-WKW-StepPrinting"
+Repository = "https://github.com/jnxmx/ComfyUI-WKW-StepPrinting"
